@@ -1,0 +1,244 @@
+:root {
+  --bg-1: #f4fff4;
+  --bg-2: #d6f1ff;
+  --ink: #17324a;
+  --accent-1: #2cb9ff;
+  --accent-2: #ff8e5d;
+  --accent-3: #7fd956;
+  --panel: #ffffffcc;
+  --line: #6ec8ff;
+  font-family: "Avenir Next", "Trebuchet MS", "Gill Sans", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  color: var(--ink);
+  background: radial-gradient(circle at 10% 20%, var(--bg-2), transparent 40%),
+    radial-gradient(circle at 80% 10%, #ffefd8, transparent 35%),
+    linear-gradient(135deg, #f8fff0, var(--bg-1));
+}
+
+.tv-shell {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.tv-hud {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.6rem;
+  background: linear-gradient(110deg, #ffffffd6, #f4fcffcc);
+  border-bottom: 1px solid #d6ecf4;
+  backdrop-filter: blur(8px);
+}
+
+.tv-hud h1 {
+  margin: 0;
+  letter-spacing: 0.06em;
+  font-size: 1.25rem;
+}
+
+.tv-hud p {
+  margin: 0;
+  opacity: 0.8;
+}
+
+.tv-chip-grid {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.chip {
+  background: #ffffff;
+  border: 1px solid #d8ecf8;
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.tv-canvas-wrap {
+  min-height: 0;
+}
+
+.orbital-code {
+  font-size: 2.4rem;
+  letter-spacing: 0.3em;
+  color: #17324a;
+  padding: 0.2rem 0.8rem;
+  border-radius: 0.5rem;
+  background: #ffffffaa;
+  border: 1px solid #d4ebff;
+}
+
+.phone-shell {
+  width: min(480px, 100%);
+  margin: 0 auto;
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.phone-card {
+  margin-top: 12vh;
+  background: var(--panel);
+  border: 1px solid #c7eaff;
+  border-radius: 1.25rem;
+  box-shadow: 0 20px 40px #8ebbd326;
+  padding: 1.2rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.phone-card input,
+.phone-card button {
+  border: 1px solid #b9dcf1;
+  border-radius: 0.9rem;
+  padding: 0.8rem;
+  font-size: 1rem;
+}
+
+.phone-card button {
+  background: linear-gradient(120deg, var(--accent-1), #5ce1ff);
+  color: white;
+  border: none;
+  font-weight: 700;
+}
+
+.phone-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.phone-topbar div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.phone-topbar span {
+  opacity: 0.75;
+}
+
+.room-pill {
+  background: #fff;
+  border-radius: 999px;
+  border: 1px solid #c4e8fd;
+  padding: 0.3rem 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.sector-map {
+  position: relative;
+  background: linear-gradient(165deg, #ffffffd9, #f1fbffcc);
+  border: 1px solid #cae8f8;
+  border-radius: 1.2rem;
+  overflow: hidden;
+  min-height: 58vh;
+}
+
+.sector-map::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, #bde6ff33 1px, transparent 1px),
+    linear-gradient(to bottom, #bde6ff33 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.hub-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border: none;
+  background: #ffffffee;
+  border-radius: 999px;
+  min-width: 62px;
+  min-height: 62px;
+  box-shadow: 0 8px 20px #9bcce042;
+  border: 1px solid #b6dff4;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  z-index: 2;
+}
+
+.hub-node span {
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.hub-node small {
+  font-size: 0.55rem;
+  opacity: 0.75;
+}
+
+.drag-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.inbound-dot {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 8px #ffffff66;
+  display: grid;
+  place-items: center;
+  z-index: 4;
+}
+
+.inbound-dot em {
+  position: absolute;
+  top: 125%;
+  font-style: normal;
+  font-size: 0.7rem;
+  color: #17324a;
+  font-weight: 700;
+}
+
+.phone-bottom {
+  background: #ffffffb8;
+  border: 1px solid #c8e8f7;
+  border-radius: 0.9rem;
+  padding: 0.7rem;
+  min-height: 60px;
+}
+
+.phone-bottom p {
+  margin: 0;
+}
+
+@media (max-width: 800px) {
+  .tv-hud {
+    flex-wrap: wrap;
+  }
+
+  .orbital-code {
+    font-size: 1.7rem;
+  }
+}

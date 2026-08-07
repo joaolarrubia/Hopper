@@ -1,0 +1,23 @@
+{
+  "name": "hopper",
+  "version": "1.0.0",
+  "description": "CloudHopper is a dual-screen multiplayer party game with a 3D TV globe and mobile sector controllers.",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "build": "npm run build --prefix server && npm run build --prefix client",
+    "start": "npm run start --prefix server"
+  },
+  "keywords": [
+    "party-game",
+    "multiplayer",
+    "react",
+    "threejs",
+    "socket-io"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^10.0.4"
+  }
+}

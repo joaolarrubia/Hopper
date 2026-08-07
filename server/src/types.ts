@@ -23,8 +23,15 @@ export interface Player {
   socketId: string;
 }
 
+export type RoomPhase = "lobby" | "live" | "ended";
+
 export interface Room {
   code: string;
   tvSocketId: string;
   players: Map<string, Player>;
+  phase: RoomPhase;
+  round: number;
+  roundEndsAt: number | null;
+  scoreByPlayerId: Record<string, number>;
+  roundTimer: NodeJS.Timeout | null;
 }

@@ -1,13 +1,15 @@
 :root {
-  --bg-1: #f4fff4;
-  --bg-2: #d6f1ff;
-  --ink: #17324a;
-  --accent-1: #2cb9ff;
-  --accent-2: #ff8e5d;
-  --accent-3: #7fd956;
-  --panel: #ffffffcc;
-  --line: #6ec8ff;
-  font-family: "Avenir Next", "Trebuchet MS", "Gill Sans", sans-serif;
+  --sky-a: #f0ffd8;
+  --sky-b: #cff1ff;
+  --sky-c: #ffe6ce;
+  --ink: #16344f;
+  --panel: #ffffffe0;
+  --line: #c9e8f8;
+  --accent-blue: #29bbff;
+  --accent-orange: #ff8c56;
+  --accent-green: #6bd34e;
+  --accent-yellow: #ffd469;
+  font-family: "Avenir Next", "Futura", "Gill Sans", sans-serif;
 }
 
 * {
@@ -24,9 +26,101 @@ body,
 
 body {
   color: var(--ink);
-  background: radial-gradient(circle at 10% 20%, var(--bg-2), transparent 40%),
-    radial-gradient(circle at 80% 10%, #ffefd8, transparent 35%),
-    linear-gradient(135deg, #f8fff0, var(--bg-1));
+  background: radial-gradient(circle at 15% 12%, var(--sky-b), transparent 35%),
+    radial-gradient(circle at 86% 4%, var(--sky-c), transparent 30%),
+    linear-gradient(145deg, #f8ffe8, var(--sky-a));
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+.eyebrow {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #427094;
+}
+
+.home-shell {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  padding: 1rem;
+  overflow: hidden;
+}
+
+.home-bg {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(0.5px);
+}
+
+.home-bg-a {
+  width: min(72vw, 820px);
+  height: min(72vw, 820px);
+  background: radial-gradient(circle, #d8f5ff 30%, #d5ffd900 68%);
+  left: -10vw;
+  top: -20vh;
+}
+
+.home-bg-b {
+  width: min(60vw, 720px);
+  height: min(60vw, 720px);
+  background: radial-gradient(circle, #ffdfca 22%, #ffc9aa00 70%);
+  right: -8vw;
+  bottom: -24vh;
+}
+
+.home-card {
+  width: min(680px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 26px 70px #8cb2c430;
+  border-radius: 2rem;
+  padding: clamp(1.4rem, 3vw, 2.2rem);
+  display: grid;
+  gap: 0.9rem;
+  position: relative;
+  z-index: 2;
+}
+
+.home-card h1 {
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  letter-spacing: 0.03em;
+}
+
+.home-card p {
+  line-height: 1.45;
+}
+
+.home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 0.5rem;
+}
+
+.home-button {
+  text-decoration: none;
+  border-radius: 999px;
+  padding: 0.78rem 1.15rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.home-button.primary {
+  background: linear-gradient(120deg, #27bbff, #67dbff);
+  color: white;
+}
+
+.home-button.secondary {
+  background: #fff;
+  color: var(--ink);
+  border-color: #b8ddf4;
 }
 
 .tv-shell {
@@ -37,55 +131,135 @@ body {
   overflow: hidden;
 }
 
-.tv-hud {
-  display: flex;
+.tv-hud.deluxe {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
   gap: 1rem;
   align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.6rem;
-  background: linear-gradient(110deg, #ffffffd6, #f4fcffcc);
-  border-bottom: 1px solid #d6ecf4;
+  padding: 0.9rem 1.3rem;
+  background: linear-gradient(105deg, #ffffffdc, #f0f9ffde);
+  border-bottom: 1px solid #d3e9f5;
   backdrop-filter: blur(8px);
 }
 
-.tv-hud h1 {
-  margin: 0;
-  letter-spacing: 0.06em;
-  font-size: 1.25rem;
+.hud-left {
+  display: grid;
+  gap: 0.25rem;
 }
 
-.tv-hud p {
-  margin: 0;
-  opacity: 0.8;
+.hud-left h1 {
+  font-size: 1.32rem;
+  letter-spacing: 0.05em;
 }
 
-.tv-chip-grid {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+.hud-center {
+  justify-items: center;
+  display: grid;
 }
 
-.chip {
-  background: #ffffff;
-  border: 1px solid #d8ecf8;
+.timer-pill {
   border-radius: 999px;
-  padding: 0.25rem 0.7rem;
-  font-size: 0.85rem;
+  background: #fff;
+  border: 1px solid #bde4fa;
+  padding: 0.4rem 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.hud-right {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.tv-action {
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(120deg, var(--accent-orange), #ffb36d);
+  color: white;
+  font-weight: 700;
+  padding: 0.5rem 0.95rem;
+}
+
+.tv-action.ghost {
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid #b8ddf4;
+}
+
+.tv-action:disabled {
+  opacity: 0.45;
 }
 
 .tv-canvas-wrap {
   min-height: 0;
+  position: relative;
 }
 
 .orbital-code {
-  font-size: 2.4rem;
+  font-size: clamp(1.4rem, 2.6vw, 2.5rem);
   letter-spacing: 0.3em;
-  color: #17324a;
-  padding: 0.2rem 0.8rem;
-  border-radius: 0.5rem;
-  background: #ffffffaa;
+  color: var(--ink);
+  padding: 0.2rem 0.85rem;
+  border-radius: 0.6rem;
+  background: #ffffffbf;
   border: 1px solid #d4ebff;
+}
+
+.leaderboard-panel,
+.activity-panel {
+  position: absolute;
+  top: 1rem;
+  width: 230px;
+  background: #ffffffc7;
+  border: 1px solid #cbe4f3;
+  border-radius: 1rem;
+  padding: 0.7rem;
+  backdrop-filter: blur(4px);
+}
+
+.leaderboard-panel {
+  left: 1rem;
+}
+
+.activity-panel {
+  right: 1rem;
+}
+
+.leaderboard-panel h2,
+.activity-panel h2 {
+  font-size: 0.9rem;
+  margin-bottom: 0.45rem;
+}
+
+.leaderboard-panel ul,
+.activity-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.34rem;
+}
+
+.leaderboard-panel li,
+.activity-panel li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  background: #ffffffb8;
+  border: 1px solid #d5e9f4;
+  border-radius: 0.6rem;
+  padding: 0.3rem 0.45rem;
+}
+
+.score-pop {
+  font-weight: 800;
+  color: #17344f;
+  background: #fff;
+  border: 1px solid #d4ecff;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.78rem;
 }
 
 .phone-shell {
@@ -93,13 +267,17 @@ body {
   margin: 0 auto;
   min-height: 100%;
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: 1rem;
-  padding: 1rem;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 0.75rem;
+  padding: 0.9rem;
 }
 
-.phone-card {
-  margin-top: 12vh;
+.phone-shell.prejoin {
+  grid-template-rows: 1fr;
+  align-items: center;
+}
+
+.phone-card.deluxe {
   background: var(--panel);
   border: 1px solid #c7eaff;
   border-radius: 1.25rem;
@@ -118,13 +296,13 @@ body {
 }
 
 .phone-card button {
-  background: linear-gradient(120deg, var(--accent-1), #5ce1ff);
+  background: linear-gradient(120deg, var(--accent-blue), #5ce1ff);
   color: white;
   border: none;
   font-weight: 700;
 }
 
-.phone-topbar {
+.phone-topbar.deluxe {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -132,25 +310,46 @@ body {
 
 .phone-topbar div {
   display: grid;
-  gap: 0.2rem;
+  gap: 0.12rem;
 }
 
 .phone-topbar span {
-  opacity: 0.75;
+  opacity: 0.82;
 }
 
-.room-pill {
+.phone-right-stats {
+  display: flex;
+  gap: 0.42rem;
+  align-items: center;
+}
+
+.room-pill,
+.score-pill {
   background: #fff;
   border-radius: 999px;
   border: 1px solid #c4e8fd;
-  padding: 0.3rem 0.7rem;
+  padding: 0.26rem 0.62rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
+}
+
+.score-pill {
+  border-color: #ffd9a6;
+}
+
+.phase-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #ffffffbf;
+  border: 1px solid #c6e4f6;
+  border-radius: 0.8rem;
+  padding: 0.46rem 0.65rem;
 }
 
 .sector-map {
   position: relative;
-  background: linear-gradient(165deg, #ffffffd9, #f1fbffcc);
+  background: linear-gradient(160deg, #ffffffe4, #effaffdc);
   border: 1px solid #cae8f8;
   border-radius: 1.2rem;
   overflow: hidden;
@@ -161,20 +360,61 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(to right, #bde6ff33 1px, transparent 1px),
-    linear-gradient(to bottom, #bde6ff33 1px, transparent 1px);
-  background-size: 20px 20px;
+  background-image: linear-gradient(to right, #bde6ff2e 1px, transparent 1px),
+    linear-gradient(to bottom, #bde6ff2e 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.sector-shape {
+  position: absolute;
+  inset: 8% 10%;
+  border-radius: 46% 54% 42% 58% / 52% 41% 59% 48%;
+  background: linear-gradient(120deg, #a8dd8a66, #8ac8f75a);
+  border: 1px solid #b4dfcb;
+  transform: rotate(-6deg);
+}
+
+.sector-map.south-america .sector-shape {
+  inset: 10% 34% 6% 26%;
+  border-radius: 46% 54% 62% 38% / 34% 36% 64% 66%;
+  transform: rotate(14deg);
+}
+
+.sector-map.north-america .sector-shape {
+  inset: 8% 14% 24% 10%;
+  border-radius: 58% 42% 42% 58% / 49% 44% 56% 51%;
+  transform: rotate(-4deg);
+}
+
+.sector-map.europe .sector-shape {
+  inset: 20% 26% 34% 20%;
+  border-radius: 51% 49% 58% 42% / 40% 50% 50% 60%;
+}
+
+.sector-map.africa .sector-shape {
+  inset: 12% 24% 14% 24%;
+  border-radius: 47% 53% 52% 48% / 41% 43% 57% 59%;
+}
+
+.sector-map.asia .sector-shape {
+  inset: 8% 12% 16% 10%;
+  border-radius: 56% 44% 47% 53% / 45% 56% 44% 55%;
+}
+
+.sector-map.oceania .sector-shape {
+  inset: 26% 24% 14% 30%;
+  border-radius: 52% 48% 62% 38% / 44% 48% 52% 56%;
 }
 
 .hub-node {
   position: absolute;
   transform: translate(-50%, -50%);
   border: none;
-  background: #ffffffee;
+  background: #ffffffef;
   border-radius: 999px;
-  min-width: 62px;
-  min-height: 62px;
-  box-shadow: 0 8px 20px #9bcce042;
+  min-width: 64px;
+  min-height: 64px;
+  box-shadow: 0 8px 22px #9bcce042;
   border: 1px solid #b6dff4;
   display: grid;
   align-content: center;
@@ -184,11 +424,11 @@ body {
 
 .hub-node span {
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
 }
 
 .hub-node small {
-  font-size: 0.55rem;
+  font-size: 0.56rem;
   opacity: 0.75;
 }
 
@@ -201,8 +441,8 @@ body {
 
 .inbound-dot {
   position: absolute;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
   border: 2px solid #fff;
@@ -221,8 +461,8 @@ body {
   font-weight: 700;
 }
 
-.phone-bottom {
-  background: #ffffffb8;
+.phone-bottom.deluxe {
+  background: #ffffffc4;
   border: 1px solid #c8e8f7;
   border-radius: 0.9rem;
   padding: 0.7rem;
@@ -233,12 +473,27 @@ body {
   margin: 0;
 }
 
-@media (max-width: 800px) {
-  .tv-hud {
-    flex-wrap: wrap;
+@media (max-width: 1100px) {
+  .leaderboard-panel,
+  .activity-panel {
+    width: 190px;
+  }
+}
+
+@media (max-width: 860px) {
+  .tv-hud.deluxe {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
   }
 
-  .orbital-code {
-    font-size: 1.7rem;
+  .hud-right {
+    justify-content: flex-start;
+  }
+
+  .leaderboard-panel,
+  .activity-panel {
+    position: static;
+    width: auto;
+    margin: 0.6rem;
   }
 }

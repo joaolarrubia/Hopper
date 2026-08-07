@@ -4,7 +4,9 @@ import { createServer } from "node:http";
 import { customAlphabet, nanoid } from "nanoid";
 import { Server } from "socket.io";
 import { hubs, sectorNeighbors, sectors } from "./data";
-import { Hub, Player, Room, SectorName } from "./types";
+import { Hub, Player, Room, RoomPhase, SectorName } from "./types";
+
+const ROUND_DURATION_MS = 95_000;
 
 const app = express();
 app.use(cors());
@@ -41,16 +43,6 @@ function getRoomBySocket(socketId: string) {
   return rooms.get(roomCode) ?? null;
 }
 
-function emitPlayers(room: Room) {
-  io.to(room.code).emit("room:players", {
-    players: [...room.players.values()].map((player) => ({
-      id: player.id,
-      name: player.name,
-      sector: player.sector
-    }))
-  });
-}
-
 function pickTargetHub(origin: Hub, targetSector?: SectorName): Hub {
   if (!targetSector) {
     const sameSector = hubs.filter((hub) => hub.sector === origin.sector && hub.code !== origin.code);
@@ -75,13 +67,85 @@ function pickPlayerInSector(room: Room, sector: SectorName): Player | null {
   return null;
 }
 
+function pointsForLaunch(origin: Hub, destination: Hub): number {
+  const latSpan = Math.abs(origin.lat - destination.lat);
+  const lngSpan = Math.abs(origin.lng - destination.lng);
+  const travelWeight = Math.round((latSpan + lngSpan) / 20);
+  const crossSectorBonus = origin.sector === destination.sector ? 6 : 20;
+  return Math.max(8, travelWeight + crossSectorBonus);
+}
+
+function leaderboardFor(room: Room) {
+  return [...room.players.values()]
+    .map((player) => ({
+      playerId: player.id,
+      playerName: player.name,
+      sector: player.sector,
+      score: room.scoreByPlayerId[player.id] ?? 0
+    }))
+    .sort((a, b) => b.score - a.score);
+}
+
+function emitRoomState(room: Room) {
+  io.to(room.code).emit("room:state", {
+    code: room.code,
+    phase: room.phase,
+    round: room.round,
+    roundEndsAt: room.roundEndsAt,
+    playerCount: room.players.size,
+    leaderboard: leaderboardFor(room)
+  });
+}
+
+function emitPlayers(room: Room) {
+  io.to(room.code).emit("room:players", {
+    players: [...room.players.values()].map((player) => ({
+      id: player.id,
+      name: player.name,
+      sector: player.sector,
+      score: room.scoreByPlayerId[player.id] ?? 0
+    }))
+  });
+}
+
+function setPhase(room: Room, phase: RoomPhase) {
+  room.phase = phase;
+  emitRoomState(room);
+}
+
+function endRound(room: Room) {
+  room.roundEndsAt = null;
+  room.roundTimer = null;
+  setPhase(room, "ended");
+}
+
+function startRound(room: Room) {
+  if (room.roundTimer) {
+    clearTimeout(room.roundTimer);
+    room.roundTimer = null;
+  }
+
+  room.round += 1;
+  room.roundEndsAt = Date.now() + ROUND_DURATION_MS;
+  setPhase(room, "live");
+
+  room.roundTimer = setTimeout(() => {
+    endRound(room);
+  }, ROUND_DURATION_MS);
+}
+
 io.on("connection", (socket) => {
   socket.on("tv:create-room", () => {
     const code = makeRoomCode();
     const room: Room = {
       code,
       tvSocketId: socket.id,
-      players: new Map()
+      players: new Map(),
+      phase: "lobby",
+      round: 0,
+      roundEndsAt: null,
+      scoreByPlayerId: {},
+      roundTimer: null
     };
 
     rooms.set(code, room);
@@ -89,6 +153,38 @@ io.on("connection", (socket) => {
     socket.join(code);
 
     socket.emit("room:created", { code });
+    emitRoomState(room);
+  });
+
+  socket.on("tv:start-round", ({ roomCode }: { roomCode: string }) => {
+    const room = rooms.get(String(roomCode || "").toUpperCase());
+    if (!room || room.tvSocketId !== socket.id || room.players.size === 0) {
+      return;
+    }
+    startRound(room);
+  });
+
+  socket.on("tv:reset-room", ({ roomCode }: { roomCode: string }) => {
+    const room = rooms.get(String(roomCode || "").toUpperCase());
+    if (!room || room.tvSocketId !== socket.id) {
+      return;
+    }
+
+    if (room.roundTimer) {
+      clearTimeout(room.roundTimer);
+      room.roundTimer = null;
+    }
+
+    room.phase = "lobby";
+    room.round = 0;
+    room.roundEndsAt = null;
+    room.scoreByPlayerId = {};
+    for (const player of room.players.values()) {
+      room.scoreByPlayerId[player.id] = 0;
+    }
+
+    emitPlayers(room);
+    emitRoomState(room);
   });
 
   socket.on("phone:join-room", ({ roomCode, playerName }: { roomCode: string; playerName: string }) => {
@@ -114,6 +210,8 @@ io.on("connection", (socket) => {
     };
 
     room.players.set(player.id, player);
+    room.scoreByPlayerId[player.id] = room.scoreByPlayerId[player.id] ?? 0;
+
     socketToRoom.set(socket.id, code);
     socket.data.playerId = player.id;
     socket.join(code);
@@ -127,6 +225,7 @@ io.on("connection", (socket) => {
     });
 
     emitPlayers(room);
+    emitRoomState(room);
   });
 
   socket.on(
@@ -146,7 +245,7 @@ io.on("connection", (socket) => {
     }) => {
       const code = String(roomCode || "").toUpperCase();
       const room = rooms.get(code);
-      if (!room) {
+      if (!room || room.phase !== "live") {
         return;
       }
 
@@ -166,8 +265,17 @@ io.on("connection", (socket) => {
 
       const pilotId = socket.data.playerId as string | undefined;
       const pilot = pilotId ? room.players.get(pilotId) : undefined;
+      if (!pilot) {
+        return;
+      }
 
-      const durationMs = 2200 + Math.floor(Math.random() * 900);
+      const durationMs = 2000 + Math.floor(Math.random() * 900);
+      const points = pointsForLaunch(origin, destination);
+
+      room.scoreByPlayerId[pilot.id] = (room.scoreByPlayerId[pilot.id] ?? 0) + points;
+      emitPlayers(room);
+      emitRoomState(room);
+
       const launch = {
         id: nanoid(10),
         origin,
@@ -175,9 +283,10 @@ io.on("connection", (socket) => {
         color: color || "#36c8ff",
         fromSector: origin.sector,
         toSector: destination.sector,
-        launchedBy: pilot?.name ?? "Pilot",
+        launchedBy: pilot.name,
         launchedAt: Date.now(),
-        durationMs
+        durationMs,
+        points
       };
 
       io.to(room.code).emit("flight:launch", launch);
@@ -206,16 +315,23 @@ io.on("connection", (socket) => {
     }
 
     if (room.tvSocketId === socket.id) {
+      if (room.roundTimer) {
+        clearTimeout(room.roundTimer);
+      }
       io.to(room.code).emit("phone:error", { message: "Host disconnected. Room closed." });
       rooms.delete(room.code);
+      socketToRoom.delete(socket.id);
       return;
     }
 
     const playerId = socket.data.playerId as string | undefined;
     if (playerId) {
       room.players.delete(playerId);
+      delete room.scoreByPlayerId[playerId];
       emitPlayers(room);
+      emitRoomState(room);
     }
+
     socketToRoom.delete(socket.id);
   });
 });

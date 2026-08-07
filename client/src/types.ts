@@ -26,6 +26,32 @@ export interface FlightEvent {
   launchedBy: string;
   launchedAt: number;
   durationMs: number;
+  points: number;
+}
+
+export type RoomPhase = "lobby" | "live" | "ended";
+
+export interface PlayerSnapshot {
+  id: string;
+  name: string;
+  sector: SectorName;
+  score: number;
+}
+
+export interface LeaderboardEntry {
+  playerId: string;
+  playerName: string;
+  sector: SectorName;
+  score: number;
+}
+
+export interface RoomState {
+  code: string;
+  phase: RoomPhase;
+  round: number;
+  roundEndsAt: number | null;
+  playerCount: number;
+  leaderboard: LeaderboardEntry[];
 }
 
 export interface InboundDot {

@@ -2,11 +2,36 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { getHubsBySector, sectorNeighbors } from "../gameData";
 import { socket } from "../socket";
-import { Hub, InboundDot, JoinSuccess } from "../types";
+import { Hub, InboundDot, JoinSuccess, RoomState, SectorName } from "../types";
 
 function pickColor() {
-  const colors = ["#ff7f6b", "#36c8ff", "#8de969", "#ffd966", "#f196ff"];
+  const colors = ["#ff7f6b", "#36c8ff", "#8de969", "#ffd966", "#f196ff", "#ffaf47"];
   return colors[Math.floor(Math.random() * colors.length)];
+}
+
+function formatMs(remainingMs: number) {
+  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function edgeTargetSector(sector: SectorName, x: number, y: number): SectorName {
+  const neighbors = sectorNeighbors[sector];
+  if (neighbors.length === 1) {
+    return neighbors[0];
+  }
+
+  if (x < 18) {
+    return neighbors[0];
+  }
+  if (x > 82) {
+    return neighbors[Math.min(1, neighbors.length - 1)];
+  }
+  if (y < 18) {
+    return neighbors[Math.min(2, neighbors.length - 1)];
+  }
+  return neighbors[Math.min(3, neighbors.length - 1)] ?? neighbors[0];
 }
 
 export function PhoneView() {
@@ -16,19 +41,32 @@ export function PhoneView() {
   const [dragStart, setDragStart] = useState<Hub | null>(null);
   const [dragPoint, setDragPoint] = useState<{ x: number; y: number } | null>(null);
   const [inboundDots, setInboundDots] = useState<InboundDot[]>([]);
-  const [message, setMessage] = useState("Connect to a room to start routing flights.");
+  const [roomState, setRoomState] = useState<RoomState | null>(null);
+  const [message, setMessage] = useState("Connect to a room to begin your sector.");
+  const [now, setNow] = useState(Date.now());
 
   const hubs = useMemo(() => (joined ? getHubsBySector(joined.sector) : []), [joined]);
+
+  const myScore = useMemo(() => {
+    if (!joined || !roomState) {
+      return 0;
+    }
+    return roomState.leaderboard.find((entry) => entry.playerId === joined.playerId)?.score ?? 0;
+  }, [joined, roomState]);
 
   useEffect(() => {
     socket.connect();
 
     socket.on("phone:join-success", (payload: JoinSuccess) => {
       setJoined(payload);
-      setMessage(`Sector assigned: ${payload.sector}`);
+      setMessage(`Sector assigned: ${payload.sector}. Await host start.`);
       if (navigator.vibrate) {
         navigator.vibrate(20);
       }
+    });
+
+    socket.on("room:state", (state: RoomState) => {
+      setRoomState(state);
     });
 
     socket.on("phone:error", ({ message: text }: { message: string }) => {
@@ -37,20 +75,22 @@ export function PhoneView() {
 
     socket.on("phone:inbound", (dot: InboundDot) => {
       setInboundDots((existing) => [...existing, dot]);
-      setMessage(`${dot.hub.city} incoming from ${dot.fromSector}! Relay in 5 seconds.`);
+      setMessage(`${dot.hub.city} incoming from ${dot.fromSector}. Relay now.`);
       if (navigator.vibrate) {
-        navigator.vibrate([18, 20, 18]);
+        navigator.vibrate([18, 24, 18]);
       }
     });
 
     const timer = window.setInterval(() => {
-      const now = Date.now();
-      setInboundDots((existing) => existing.filter((dot) => dot.expiresAt > now));
+      const timestamp = Date.now();
+      setNow(timestamp);
+      setInboundDots((existing) => existing.filter((dot) => dot.expiresAt > timestamp));
     }, 120);
 
     return () => {
       window.clearInterval(timer);
       socket.off("phone:join-success");
+      socket.off("room:state");
       socket.off("phone:error");
       socket.off("phone:inbound");
       socket.disconnect();
@@ -65,6 +105,10 @@ export function PhoneView() {
   }
 
   function startDrag(hub: Hub) {
+    if (roomState?.phase !== "live") {
+      setMessage("Round is paused. Wait for host to start.");
+      return;
+    }
     setDragStart(hub);
     setDragPoint({ x: hub.x, y: hub.y });
   }
@@ -82,7 +126,7 @@ export function PhoneView() {
       }
       const dx = dragPoint.x - hub.x;
       const dy = dragPoint.y - hub.y;
-      return Math.hypot(dx, dy) < 9;
+      return Math.hypot(dx, dy) < 10;
     });
 
     const color = pickColor();
@@ -96,14 +140,12 @@ export function PhoneView() {
       });
       setMessage(`${dragStart.city} to ${nearby.city}`);
       if (navigator.vibrate) {
-        navigator.vibrate(12);
+        navigator.vibrate(14);
       }
     } else {
-      const atEdge =
-        dragPoint.x < 8 || dragPoint.x > 92 || dragPoint.y < 8 || dragPoint.y > 92;
+      const atEdge = dragPoint.x < 10 || dragPoint.x > 90 || dragPoint.y < 10 || dragPoint.y > 90;
       if (atEdge) {
-        const neighbors = sectorNeighbors[joined.sector];
-        const targetSector = neighbors[Math.floor(Math.random() * neighbors.length)];
+        const targetSector = edgeTargetSector(joined.sector, dragPoint.x, dragPoint.y);
         socket.emit("phone:launch", {
           roomCode: joined.roomCode,
           originCode: dragStart.code,
@@ -112,8 +154,10 @@ export function PhoneView() {
         });
         setMessage(`Pass-off to ${targetSector}`);
         if (navigator.vibrate) {
-          navigator.vibrate([8, 20, 8]);
+          navigator.vibrate([10, 20, 10]);
         }
+      } else {
+        setMessage("Route canceled. Drag to a hub or the border for pass-off.");
       }
     }
 
@@ -123,15 +167,16 @@ export function PhoneView() {
 
   if (!joined) {
     return (
-      <main className="phone-shell">
+      <main className="phone-shell prejoin">
         <motion.section
-          className="phone-card"
-          initial={{ y: 20, opacity: 0 }}
+          className="phone-card deluxe"
+          initial={{ y: 22, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.45, ease: "easeOut" }}
         >
-          <h1>CloudHopper</h1>
-          <p>Enter the 4-letter room code from the big screen.</p>
+          <p className="eyebrow">Sector Launchpad</p>
+          <h1>Join CloudHopper</h1>
+          <p>Enter the 4-letter room code from the big screen and choose your pilot name.</p>
           <input
             maxLength={4}
             value={code}
@@ -153,18 +198,29 @@ export function PhoneView() {
     );
   }
 
+  const roundClock = roomState?.roundEndsAt ? formatMs(roomState.roundEndsAt - now) : "01:35";
+  const mapClass = joined.sector.toLowerCase().replace(/\s+/g, "-");
+
   return (
-    <main className="phone-shell">
-      <section className="phone-topbar">
+    <main className="phone-shell live">
+      <section className="phone-topbar deluxe">
         <div>
           <strong>{joined.playerName}</strong>
           <span>{joined.sector}</span>
         </div>
-        <span className="room-pill">{joined.roomCode}</span>
+        <div className="phone-right-stats">
+          <span className="room-pill">{joined.roomCode}</span>
+          <span className="score-pill">{myScore} pts</span>
+        </div>
+      </section>
+
+      <section className="phase-strip">
+        <strong>{roomState?.phase === "live" ? `Round ${roomState.round}` : "Lobby"}</strong>
+        <span>{roundClock}</span>
       </section>
 
       <section
-        className="sector-map"
+        className={`sector-map ${mapClass}`}
         onPointerMove={(event) => {
           const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
           const x = ((event.clientX - rect.left) / rect.width) * 100;
@@ -174,14 +230,17 @@ export function PhoneView() {
           }
         }}
         onPointerUp={endDrag}
+        onPointerLeave={endDrag}
       >
+        <div className="sector-shape" />
+
         {hubs.map((hub) => (
           <motion.button
             key={hub.code}
             className="hub-node"
             style={{ left: `${hub.x}%`, top: `${hub.y}%` }}
             onPointerDown={() => startDrag(hub)}
-            whileTap={{ scale: 1.12 }}
+            whileTap={{ scale: 1.14 }}
             type="button"
           >
             <span>{hub.code}</span>
@@ -190,14 +249,14 @@ export function PhoneView() {
         ))}
 
         {inboundDots.map((dot) => {
-          const remaining = Math.max(0, dot.expiresAt - Date.now());
+          const remaining = Math.max(0, dot.expiresAt - now);
           return (
             <motion.div
               key={dot.id}
               className="inbound-dot"
               style={{ left: `${dot.hub.x}%`, top: `${dot.hub.y}%`, background: dot.color }}
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: [0.8, 1.15, 1], opacity: 1 }}
+              initial={{ scale: 0.45, opacity: 0 }}
+              animate={{ scale: [0.75, 1.2, 1], opacity: 1 }}
               transition={{ duration: 0.35 }}
             >
               <em>{Math.ceil(remaining / 1000)}s</em>
@@ -211,9 +270,9 @@ export function PhoneView() {
               d={`M ${dragStart.x} ${dragStart.y} Q ${(dragStart.x + dragPoint.x) / 2} ${Math.min(
                 dragStart.y,
                 dragPoint.y
-              ) - 10} ${dragPoint.x} ${dragPoint.y}`}
-              stroke="#36c8ff"
-              strokeWidth="1.3"
+              ) - 9} ${dragPoint.x} ${dragPoint.y}`}
+              stroke="#2ec3ff"
+              strokeWidth="1.5"
               fill="none"
               initial={{ pathLength: 0 }}
               animate={{ pathLength: 1 }}
@@ -222,7 +281,7 @@ export function PhoneView() {
         ) : null}
       </section>
 
-      <section className="phone-bottom">
+      <section className="phone-bottom deluxe">
         <p>{message}</p>
       </section>
     </main>

@@ -2,9 +2,10 @@
 
 CloudHopper is a dual-screen multiplayer party game.
 
-- TV/Big Screen at `/tv`: a live 3D globe and room code.
-- Phone Controller at `/phone`: assigned sector map for route slingshots.
-- Real-time sync via Socket.IO for launches and sector handoffs.
+- Landing at `/`: host or join entry screen.
+- TV/Big Screen at `/tv`: live 3D globe, room code, leaderboard, round controls.
+- Phone Controller at `/phone`: sector launchpad map for route slingshots and pass-offs.
+- Real-time sync via Socket.IO for launches, scoring, and inbound handoffs.
 
 ## Gameplay Loop
 
@@ -14,6 +15,7 @@ CloudHopper is a dual-screen multiplayer party game.
 4. Draw from a hub to another hub for local routes.
 5. Draw from a hub to the map edge to pass flights to another sector.
 6. Flights animate on the globe and arrive as inbound dots for the next sector player.
+7. Host starts the round timer and everyone races for score until round end.
 
 ## Tech Stack
 
@@ -34,8 +36,17 @@ npm run dev
 
 Open:
 
+- Landing: `http://localhost:5173/`
 - TV host: `http://localhost:5173/tv`
 - Phone controllers: `http://localhost:5173/phone`
+
+## Round System
+
+- Room phases: `lobby` -> `live` -> `ended`
+- Round duration: 95 seconds
+- TV host controls round start and room reset
+- Points are awarded per route based on route span and cross-sector bonus
+- TV leaderboard and phone personal score update in real-time
 
 ## Build
 
@@ -70,5 +81,25 @@ npm run build
   "originCode": "RIO",
   "targetSector": "Africa",
   "color": "#ff7f6b"
+}
+```
+
+`room:state` payload:
+
+```json
+{
+  "code": "PLAY",
+  "phase": "live",
+  "round": 1,
+  "roundEndsAt": 1760000000000,
+  "playerCount": 4,
+  "leaderboard": [
+    {
+      "playerId": "abc123",
+      "playerName": "Nova",
+      "sector": "Europe",
+      "score": 104
+    }
+  ]
 }
 ```

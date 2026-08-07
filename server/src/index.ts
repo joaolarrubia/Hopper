@@ -51,6 +51,52 @@ function getRoomBySocket(socketId: string) {
   return rooms.get(roomCode) ?? null;
 }
 
+function removeSocketPlayerMembership(socketId: string) {
+  const room = getRoomBySocket(socketId);
+  if (!room) {
+    socketToRoom.delete(socketId);
+    return;
+  }
+
+  let removedPlayerId: string | null = null;
+  for (const player of room.players.values()) {
+    if (player.socketId === socketId) {
+      removedPlayerId = player.id;
+      break;
+    }
+  }
+
+  if (removedPlayerId) {
+    room.players.delete(removedPlayerId);
+    delete room.scoreByPlayerId[removedPlayerId];
+    delete room.launchCooldownByPlayerId[removedPlayerId];
+    emitPlayers(room);
+    emitRoomState(room);
+  }
+
+  socketToRoom.delete(socketId);
+}
+
+function closeRoom(code: string) {
+  const room = rooms.get(code);
+  if (!room) {
+    return;
+  }
+
+  if (room.roundTimer) {
+    clearTimeout(room.roundTimer);
+  }
+  stopMissionLoop(room);
+  io.to(code).emit("phone:error", { message: "Host disconnected. Room closed." });
+
+  socketToRoom.delete(room.tvSocketId);
+  for (const player of room.players.values()) {
+    socketToRoom.delete(player.socketId);
+  }
+
+  rooms.delete(code);
+}
+
 function pickTargetHub(origin: Hub, targetSector?: SectorName): Hub {
   if (!targetSector) {
     const sameSector = hubs.filter((hub) => hub.sector === origin.sector && hub.code !== origin.code);
@@ -238,6 +284,11 @@ function isMissionCompleted(mission: Mission, origin: Hub, destination: Hub, bas
 
 io.on("connection", (socket) => {
   socket.on("tv:create-room", () => {
+    const existing = getRoomBySocket(socket.id);
+    if (existing && existing.tvSocketId === socket.id) {
+      closeRoom(existing.code);
+    }
+
     const code = makeRoomCode();
     const room: Room = {
       code,
@@ -298,6 +349,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("phone:join-room", ({ roomCode, playerName }: { roomCode: string; playerName: string }) => {
+    removeSocketPlayerMembership(socket.id);
+
     const code = String(roomCode || "").toUpperCase();
     const room = rooms.get(code);
 
@@ -485,31 +538,16 @@ io.on("connection", (socket) => {
     }
 
     if (room.tvSocketId === socket.id) {
-      if (room.roundTimer) {
-        clearTimeout(room.roundTimer);
-      }
-      stopMissionLoop(room);
-      io.to(room.code).emit("phone:error", { message: "Host disconnected. Room closed." });
-      rooms.delete(room.code);
-      socketToRoom.delete(socket.id);
+      closeRoom(room.code);
       return;
     }
 
-    const playerId = socket.data.playerId as string | undefined;
-    if (playerId) {
-      room.players.delete(playerId);
-      delete room.scoreByPlayerId[playerId];
-      delete room.launchCooldownByPlayerId[playerId];
-      emitPlayers(room);
-      emitRoomState(room);
-    }
-
-    socketToRoom.delete(socket.id);
+    removeSocketPlayerMembership(socket.id);
   });
 });
 
 const port = Number(process.env.PORT || 4000);
 httpServer.listen(port, () => {
   // eslint-disable-next-line no-console
-  console.log(`CloudHopper server listening on :${port}`);
+  console.log(`Hopper server listening on :${port}`);
 });

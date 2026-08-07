@@ -1,7 +1,7 @@
 import { useMemo, useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import { OrbitControls, Stars, Line, Html } from "@react-three/drei";
-import { Color, Group, Mesh, Vector3 } from "three";
+import { Color, Group, Mesh, TextureLoader, Vector3 } from "three";
 import { FlightEvent, Hub } from "../types";
 
 function latLngToVec3(lat: number, lng: number, radius = 2.05) {
@@ -105,6 +105,12 @@ function HubMarkers({ hubs }: { hubs: Hub[] }) {
 
 function GlobeVisual({ flights, hubs }: { flights: FlightEvent[]; hubs: Hub[] }) {
   const groupRef = useRef<Group>(null);
+  const [earthMap, normalMap, specMap, cloudMap] = useLoader(TextureLoader, [
+    "https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg",
+    "https://threejs.org/examples/textures/planets/earth_normal_2048.jpg",
+    "https://threejs.org/examples/textures/planets/earth_specular_2048.jpg",
+    "https://threejs.org/examples/textures/planets/earth_clouds_1024.png"
+  ]);
 
   useFrame((state) => {
     if (groupRef.current) {
@@ -116,11 +122,17 @@ function GlobeVisual({ flights, hubs }: { flights: FlightEvent[]; hubs: Hub[] })
     <group ref={groupRef}>
       <mesh>
         <sphereGeometry args={[2, 64, 64]} />
-        <meshStandardMaterial color="#9cd1ff" roughness={0.72} metalness={0.08} />
+        <meshStandardMaterial
+          map={earthMap}
+          normalMap={normalMap}
+          roughnessMap={specMap}
+          roughness={0.82}
+          metalness={0.02}
+        />
       </mesh>
       <mesh>
-        <sphereGeometry args={[2.03, 64, 64]} />
-        <meshStandardMaterial color="#ebfff2" transparent opacity={0.09} />
+        <sphereGeometry args={[2.04, 64, 64]} />
+        <meshStandardMaterial map={cloudMap} transparent opacity={0.2} depthWrite={false} />
       </mesh>
       <mesh>
         <sphereGeometry args={[2.12, 64, 64]} />

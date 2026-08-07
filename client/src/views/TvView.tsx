@@ -21,8 +21,12 @@ export function TvView() {
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
+    const handleConnect = () => {
+      socket.emit("tv:create-room");
+    };
+
+    socket.on("connect", handleConnect);
     socket.connect();
-    socket.emit("tv:create-room");
 
     socket.on("room:created", ({ code }: { code: string }) => {
       setRoomCode(code);
@@ -69,11 +73,12 @@ export function TvView() {
       socket.off("mission:completed");
       socket.off("flight:launch");
       socket.off("flight:complete");
+      socket.off("connect", handleConnect);
       socket.disconnect();
     };
   }, []);
 
-  const heading = useMemo(() => (roomCode ? `cloudhopper.tv/${roomCode}` : "Creating room..."), [roomCode]);
+  const heading = useMemo(() => (roomCode ? `hopper.tv/${roomCode}` : "Creating room..."), [roomCode]);
 
   const remaining = useMemo(() => {
     if (!state?.roundEndsAt) {
@@ -89,7 +94,7 @@ export function TvView() {
       <div className="tv-hud deluxe">
         <div className="hud-left">
           <p className="eyebrow">Global Theater</p>
-          <h1>CloudHopper</h1>
+          <h1>Hopper</h1>
           <p>{heading}</p>
         </div>
 

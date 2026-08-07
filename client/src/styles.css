@@ -446,45 +446,47 @@ p {
   background-size: 24px 24px;
 }
 
-.sector-shape {
+.map-silhouette {
   position: absolute;
-  inset: 8% 10%;
-  border-radius: 46% 54% 42% 58% / 52% 41% 59% 48%;
-  background: linear-gradient(120deg, #a8dd8a66, #8ac8f75a);
-  border: 1px solid #b4dfcb;
-  transform: rotate(-6deg);
+  inset: 0;
+  z-index: 1;
 }
 
-.sector-map.south-america .sector-shape {
-  inset: 10% 34% 6% 26%;
-  border-radius: 46% 54% 62% 38% / 34% 36% 64% 66%;
-  transform: rotate(14deg);
+.map-silhouette path {
+  fill: #8fd2877a;
+  stroke: #6cae8e;
+  stroke-width: 0.5;
 }
 
-.sector-map.north-america .sector-shape {
-  inset: 8% 14% 24% 10%;
-  border-radius: 58% 42% 42% 58% / 49% 44% 56% 51%;
-  transform: rotate(-4deg);
+.map-silhouette .lat-line,
+.map-silhouette .lng-line {
+  fill: none;
+  stroke: #8ec4e36e;
+  stroke-width: 0.28;
 }
 
-.sector-map.europe .sector-shape {
-  inset: 20% 26% 34% 20%;
-  border-radius: 51% 49% 58% 42% / 40% 50% 50% 60%;
+.sector-map.north-america .map-silhouette path:first-of-type {
+  fill: #93d88f7d;
 }
 
-.sector-map.africa .sector-shape {
-  inset: 12% 24% 14% 24%;
-  border-radius: 47% 53% 52% 48% / 41% 43% 57% 59%;
+.sector-map.south-america .map-silhouette path:first-of-type {
+  fill: #86cfea7d;
 }
 
-.sector-map.asia .sector-shape {
-  inset: 8% 12% 16% 10%;
-  border-radius: 56% 44% 47% 53% / 45% 56% 44% 55%;
+.sector-map.europe .map-silhouette path:first-of-type {
+  fill: #a8d48580;
 }
 
-.sector-map.oceania .sector-shape {
-  inset: 26% 24% 14% 30%;
-  border-radius: 52% 48% 62% 38% / 44% 48% 52% 56%;
+.sector-map.africa .map-silhouette path:first-of-type {
+  fill: #d7cb8278;
+}
+
+.sector-map.asia .map-silhouette path:first-of-type {
+  fill: #9bc0ee7a;
+}
+
+.sector-map.oceania .map-silhouette path:first-of-type {
+  fill: #b99cec80;
 }
 
 .hub-node {

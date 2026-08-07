@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { getHubsBySector, sectorNeighbors } from "../gameData";
 import { socket } from "../socket";
 import { Hub, InboundDot, JoinSuccess, LaunchAck, Mission, RoomState, SectorName } from "../types";
+import { SectorSilhouette } from "../components/SectorSilhouette";
 
 function pickColor() {
   const colors = ["#ff7f6b", "#36c8ff", "#8de969", "#ffd966", "#f196ff", "#ffaf47"];
@@ -104,6 +105,24 @@ export function PhoneView() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!roomState) {
+      return;
+    }
+
+    if (roomState.phase === "live") {
+      setMessage(`Round ${roomState.round} is live. Route flights now.`);
+      return;
+    }
+
+    if (roomState.phase === "ended") {
+      setMessage("Round complete. Await the next launch window.");
+      return;
+    }
+
+    setMessage("Lobby open. Wait for host to start the round.");
+  }, [roomState?.phase, roomState?.round]);
+
   function joinRoom() {
     socket.emit("phone:join-room", {
       roomCode: code.trim().toUpperCase(),
@@ -192,7 +211,7 @@ export function PhoneView() {
           transition={{ duration: 0.45, ease: "easeOut" }}
         >
           <p className="eyebrow">Sector Launchpad</p>
-          <h1>Join CloudHopper</h1>
+          <h1>Join Hopper</h1>
           <p>Enter the 4-letter room code from the big screen and choose your pilot name.</p>
           <input
             maxLength={4}
@@ -262,7 +281,7 @@ export function PhoneView() {
         onPointerUp={endDrag}
         onPointerLeave={endDrag}
       >
-        <div className="sector-shape" />
+        <SectorSilhouette sector={joined.sector} />
 
         {hubs.map((hub) => (
           <motion.button

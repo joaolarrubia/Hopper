@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { GlobeScene } from "../components/GlobeScene";
 import { hubs } from "../gameData";
 import { socket } from "../socket";
-import { FlightEvent, PlayerSnapshot, RoomState } from "../types";
+import { FlightEvent, Mission, MissionCompletedEvent, PlayerSnapshot, RoomState } from "../types";
 
 function formatMs(remainingMs: number) {
   const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
@@ -16,6 +16,8 @@ export function TvView() {
   const [players, setPlayers] = useState<PlayerSnapshot[]>([]);
   const [flights, setFlights] = useState<FlightEvent[]>([]);
   const [state, setState] = useState<RoomState | null>(null);
+  const [missions, setMissions] = useState<Mission[]>([]);
+  const [missionFeed, setMissionFeed] = useState<MissionCompletedEvent[]>([]);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -35,6 +37,14 @@ export function TvView() {
       setPlayers(currentPlayers);
     });
 
+    socket.on("room:missions", ({ missions: nextMissions }: { missions: Mission[] }) => {
+      setMissions(nextMissions);
+    });
+
+    socket.on("mission:completed", (event: MissionCompletedEvent) => {
+      setMissionFeed((existing) => [event, ...existing].slice(0, 6));
+    });
+
     socket.on("flight:launch", (flight: FlightEvent) => {
       setFlights((existing) => [...existing, flight]);
     });
@@ -44,11 +54,10 @@ export function TvView() {
     });
 
     const interval = window.setInterval(() => {
-      setNow(Date.now());
-      setFlights((existing) => {
-        const timestamp = Date.now();
-        return existing.filter((flight) => timestamp - flight.launchedAt < flight.durationMs + 280);
-      });
+      const timestamp = Date.now();
+      setNow(timestamp);
+      setFlights((existing) => existing.filter((flight) => timestamp - flight.launchedAt < flight.durationMs + 280));
+      setMissions((existing) => existing.filter((mission) => mission.expiresAt > timestamp));
     }, 100);
 
     return () => {
@@ -56,6 +65,8 @@ export function TvView() {
       socket.off("room:created");
       socket.off("room:state");
       socket.off("room:players");
+      socket.off("room:missions");
+      socket.off("mission:completed");
       socket.off("flight:launch");
       socket.off("flight:complete");
       socket.disconnect();
@@ -139,6 +150,37 @@ export function TvView() {
               </li>
             ))}
             {flights.length === 0 ? <li>No flights in airspace</li> : null}
+          </ul>
+        </aside>
+
+        <aside className="mission-panel">
+          <h2>Active Missions</h2>
+          <ul>
+            {missions.map((mission) => (
+              <li key={mission.id}>
+                <div>
+                  <strong>{mission.title}</strong>
+                  <p>{mission.description}</p>
+                </div>
+                <span>
+                  +{mission.reward} / {formatMs(mission.expiresAt - now)}
+                </span>
+              </li>
+            ))}
+            {missions.length === 0 ? <li>Mission board loading...</li> : null}
+          </ul>
+        </aside>
+
+        <aside className="mission-feed-panel">
+          <h2>Mission Feed</h2>
+          <ul>
+            {missionFeed.map((event, idx) => (
+              <li key={`${event.mission.id}-${idx}`}>
+                <span>{event.completedBy}</span>
+                <strong>+{event.reward}</strong>
+              </li>
+            ))}
+            {missionFeed.length === 0 ? <li>No mission clears yet</li> : null}
           </ul>
         </aside>
       </section>

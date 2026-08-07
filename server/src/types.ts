@@ -25,6 +25,19 @@ export interface Player {
 
 export type RoomPhase = "lobby" | "live" | "ended";
 
+export type MissionKind = "sector" | "hub" | "longhaul";
+
+export interface Mission {
+  id: string;
+  kind: MissionKind;
+  title: string;
+  description: string;
+  reward: number;
+  expiresAt: number;
+  targetSector?: SectorName;
+  targetHubCode?: string;
+}
+
 export interface Room {
   code: string;
   tvSocketId: string;
@@ -34,4 +47,7 @@ export interface Room {
   roundEndsAt: number | null;
   scoreByPlayerId: Record<string, number>;
   roundTimer: NodeJS.Timeout | null;
+  missionTimer: NodeJS.Timeout | null;
+  missions: Mission[];
+  launchCooldownByPlayerId: Record<string, number>;
 }

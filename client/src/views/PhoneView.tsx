@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { getHubsBySector, sectorNeighbors } from "../gameData";
 import { socket } from "../socket";
-import { Hub, InboundDot, JoinSuccess, RoomState, SectorName } from "../types";
+import { Hub, InboundDot, JoinSuccess, LaunchAck, Mission, RoomState, SectorName } from "../types";
 
 function pickColor() {
   const colors = ["#ff7f6b", "#36c8ff", "#8de969", "#ffd966", "#f196ff", "#ffaf47"];
@@ -42,6 +42,7 @@ export function PhoneView() {
   const [dragPoint, setDragPoint] = useState<{ x: number; y: number } | null>(null);
   const [inboundDots, setInboundDots] = useState<InboundDot[]>([]);
   const [roomState, setRoomState] = useState<RoomState | null>(null);
+  const [missions, setMissions] = useState<Mission[]>([]);
   const [message, setMessage] = useState("Connect to a room to begin your sector.");
   const [now, setNow] = useState(Date.now());
 
@@ -69,6 +70,10 @@ export function PhoneView() {
       setRoomState(state);
     });
 
+    socket.on("room:missions", ({ missions: nextMissions }: { missions: Mission[] }) => {
+      setMissions(nextMissions);
+    });
+
     socket.on("phone:error", ({ message: text }: { message: string }) => {
       setMessage(text);
     });
@@ -85,12 +90,14 @@ export function PhoneView() {
       const timestamp = Date.now();
       setNow(timestamp);
       setInboundDots((existing) => existing.filter((dot) => dot.expiresAt > timestamp));
+      setMissions((existing) => existing.filter((mission) => mission.expiresAt > timestamp));
     }, 120);
 
     return () => {
       window.clearInterval(timer);
       socket.off("phone:join-success");
       socket.off("room:state");
+      socket.off("room:missions");
       socket.off("phone:error");
       socket.off("phone:inbound");
       socket.disconnect();
@@ -113,6 +120,24 @@ export function PhoneView() {
     setDragPoint({ x: hub.x, y: hub.y });
   }
 
+  function launchWithAck(payload: {
+    roomCode: string;
+    originCode: string;
+    destinationCode?: string;
+    targetSector?: SectorName;
+    color: string;
+  }) {
+    socket.emit("phone:launch", payload, (ack: LaunchAck) => {
+      setMessage(ack.message);
+      if (!ack.ok && navigator.vibrate) {
+        navigator.vibrate([18, 10, 18]);
+      }
+      if (ack.ok && navigator.vibrate) {
+        navigator.vibrate(14);
+      }
+    });
+  }
+
   function endDrag() {
     if (!dragStart || !dragPoint || !joined) {
       setDragStart(null);
@@ -132,30 +157,22 @@ export function PhoneView() {
     const color = pickColor();
 
     if (nearby) {
-      socket.emit("phone:launch", {
+      launchWithAck({
         roomCode: joined.roomCode,
         originCode: dragStart.code,
         destinationCode: nearby.code,
         color
       });
-      setMessage(`${dragStart.city} to ${nearby.city}`);
-      if (navigator.vibrate) {
-        navigator.vibrate(14);
-      }
     } else {
       const atEdge = dragPoint.x < 10 || dragPoint.x > 90 || dragPoint.y < 10 || dragPoint.y > 90;
       if (atEdge) {
         const targetSector = edgeTargetSector(joined.sector, dragPoint.x, dragPoint.y);
-        socket.emit("phone:launch", {
+        launchWithAck({
           roomCode: joined.roomCode,
           originCode: dragStart.code,
           targetSector,
           color
         });
-        setMessage(`Pass-off to ${targetSector}`);
-        if (navigator.vibrate) {
-          navigator.vibrate([10, 20, 10]);
-        }
       } else {
         setMessage("Route canceled. Drag to a hub or the border for pass-off.");
       }
@@ -217,6 +234,19 @@ export function PhoneView() {
       <section className="phase-strip">
         <strong>{roomState?.phase === "live" ? `Round ${roomState.round}` : "Lobby"}</strong>
         <span>{roundClock}</span>
+      </section>
+
+      <section className="phone-mission-strip">
+        {missions.map((mission) => (
+          <article key={mission.id} className="phone-mission-card">
+            <strong>{mission.title}</strong>
+            <p>{mission.description}</p>
+            <span>
+              +{mission.reward} / {formatMs(mission.expiresAt - now)}
+            </span>
+          </article>
+        ))}
+        {missions.length === 0 ? <p className="empty-missions">Missions loading...</p> : null}
       </section>
 
       <section

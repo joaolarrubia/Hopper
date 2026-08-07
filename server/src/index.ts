@@ -4,9 +4,13 @@ import { createServer } from "node:http";
 import { customAlphabet, nanoid } from "nanoid";
 import { Server } from "socket.io";
 import { hubs, sectorNeighbors, sectors } from "./data";
-import { Hub, Player, Room, RoomPhase, SectorName } from "./types";
+import { Hub, Mission, MissionKind, Player, Room, RoomPhase, SectorName } from "./types";
 
 const ROUND_DURATION_MS = 95_000;
+const MISSION_DURATION_MS = 28_000;
+const MISSION_TICK_MS = 9_000;
+const MAX_ACTIVE_MISSIONS = 3;
+const PLAYER_LAUNCH_COOLDOWN_MS = 320;
 
 const app = express();
 app.use(cors());
@@ -35,6 +39,10 @@ function makeRoomCode(): string {
   return code;
 }
 
+function randomItem<T>(list: T[]): T {
+  return list[Math.floor(Math.random() * list.length)];
+}
+
 function getRoomBySocket(socketId: string) {
   const roomCode = socketToRoom.get(socketId);
   if (!roomCode) {
@@ -46,11 +54,11 @@ function getRoomBySocket(socketId: string) {
 function pickTargetHub(origin: Hub, targetSector?: SectorName): Hub {
   if (!targetSector) {
     const sameSector = hubs.filter((hub) => hub.sector === origin.sector && hub.code !== origin.code);
-    return sameSector[Math.floor(Math.random() * sameSector.length)] ?? origin;
+    return randomItem(sameSector.length > 0 ? sameSector : [origin]);
   }
 
   const targets = hubs.filter((hub) => hub.sector === targetSector);
-  return targets[Math.floor(Math.random() * targets.length)] ?? origin;
+  return randomItem(targets.length > 0 ? targets : [origin]);
 }
 
 function pickAssignedSector(room: Room): SectorName | null {
@@ -108,6 +116,83 @@ function emitPlayers(room: Room) {
   });
 }
 
+function emitMissions(room: Room) {
+  io.to(room.code).emit("room:missions", {
+    missions: room.missions
+  });
+}
+
+function expireMissions(room: Room) {
+  const now = Date.now();
+  room.missions = room.missions.filter((mission) => mission.expiresAt > now);
+}
+
+function createMission(room: Room): Mission {
+  const kinds: MissionKind[] = ["sector", "hub", "longhaul"];
+  const kind = randomItem(kinds);
+
+  if (kind === "sector") {
+    const targetSector = randomItem(sectors);
+    return {
+      id: nanoid(9),
+      kind,
+      title: `Priority Lift: ${targetSector}`,
+      description: `Land any flight in ${targetSector}.`,
+      reward: 25,
+      expiresAt: Date.now() + MISSION_DURATION_MS,
+      targetSector
+    };
+  }
+
+  if (kind === "hub") {
+    const hub = randomItem(hubs);
+    return {
+      id: nanoid(9),
+      kind,
+      title: `Direct Service: ${hub.code}`,
+      description: `Route a flight into ${hub.city}.`,
+      reward: 34,
+      expiresAt: Date.now() + MISSION_DURATION_MS,
+      targetHubCode: hub.code
+    };
+  }
+
+  return {
+    id: nanoid(9),
+    kind,
+    title: "Long Haul Rush",
+    description: "Complete a high-distance route worth 20+ base points.",
+    reward: 30,
+    expiresAt: Date.now() + MISSION_DURATION_MS
+  };
+}
+
+function topUpMissions(room: Room) {
+  expireMissions(room);
+  while (room.missions.length < MAX_ACTIVE_MISSIONS) {
+    room.missions.push(createMission(room));
+  }
+  emitMissions(room);
+}
+
+function stopMissionLoop(room: Room) {
+  if (room.missionTimer) {
+    clearInterval(room.missionTimer);
+    room.missionTimer = null;
+  }
+}
+
+function startMissionLoop(room: Room) {
+  stopMissionLoop(room);
+  topUpMissions(room);
+  room.missionTimer = setInterval(() => {
+    if (room.phase !== "live") {
+      return;
+    }
+    topUpMissions(room);
+  }, MISSION_TICK_MS);
+}
+
 function setPhase(room: Room, phase: RoomPhase) {
   room.phase = phase;
   emitRoomState(room);
@@ -116,6 +201,9 @@ function setPhase(room: Room, phase: RoomPhase) {
 function endRound(room: Room) {
   room.roundEndsAt = null;
   room.roundTimer = null;
+  stopMissionLoop(room);
+  room.missions = [];
+  emitMissions(room);
   setPhase(room, "ended");
 }
 
@@ -127,11 +215,25 @@ function startRound(room: Room) {
 
   room.round += 1;
   room.roundEndsAt = Date.now() + ROUND_DURATION_MS;
+  room.missions = [];
   setPhase(room, "live");
+  startMissionLoop(room);
 
   room.roundTimer = setTimeout(() => {
     endRound(room);
   }, ROUND_DURATION_MS);
+}
+
+function isMissionCompleted(mission: Mission, origin: Hub, destination: Hub, basePoints: number): boolean {
+  if (mission.kind === "sector") {
+    return destination.sector === mission.targetSector;
+  }
+
+  if (mission.kind === "hub") {
+    return destination.code === mission.targetHubCode;
+  }
+
+  return origin.sector !== destination.sector && basePoints >= 20;
 }
 
 io.on("connection", (socket) => {
@@ -145,7 +247,10 @@ io.on("connection", (socket) => {
       round: 0,
       roundEndsAt: null,
       scoreByPlayerId: {},
-      roundTimer: null
+      roundTimer: null,
+      missionTimer: null,
+      missions: [],
+      launchCooldownByPlayerId: {}
     };
 
     rooms.set(code, room);
@@ -154,6 +259,7 @@ io.on("connection", (socket) => {
 
     socket.emit("room:created", { code });
     emitRoomState(room);
+    emitMissions(room);
   });
 
   socket.on("tv:start-round", ({ roomCode }: { roomCode: string }) => {
@@ -174,17 +280,21 @@ io.on("connection", (socket) => {
       clearTimeout(room.roundTimer);
       room.roundTimer = null;
     }
+    stopMissionLoop(room);
 
     room.phase = "lobby";
     room.round = 0;
     room.roundEndsAt = null;
     room.scoreByPlayerId = {};
+    room.missions = [];
+    room.launchCooldownByPlayerId = {};
     for (const player of room.players.values()) {
       room.scoreByPlayerId[player.id] = 0;
     }
 
     emitPlayers(room);
     emitRoomState(room);
+    emitMissions(room);
   });
 
   socket.on("phone:join-room", ({ roomCode, playerName }: { roomCode: string; playerName: string }) => {
@@ -226,35 +336,72 @@ io.on("connection", (socket) => {
 
     emitPlayers(room);
     emitRoomState(room);
+    emitMissions(room);
   });
 
   socket.on(
     "phone:launch",
-    ({
-      roomCode,
-      originCode,
-      destinationCode,
-      targetSector,
-      color
-    }: {
-      roomCode: string;
-      originCode: string;
-      destinationCode?: string;
-      targetSector?: SectorName;
-      color?: string;
-    }) => {
+    (
+      {
+        roomCode,
+        originCode,
+        destinationCode,
+        targetSector,
+        color
+      }: {
+        roomCode: string;
+        originCode: string;
+        destinationCode?: string;
+        targetSector?: SectorName;
+        color?: string;
+      },
+      ack?: (response: {
+        ok: boolean;
+        message: string;
+        pointsAwarded?: number;
+        totalScore?: number;
+        missionBonus?: number;
+      }) => void
+    ) => {
       const code = String(roomCode || "").toUpperCase();
       const room = rooms.get(code);
       if (!room || room.phase !== "live") {
+        ack?.({ ok: false, message: "Round is not live." });
+        return;
+      }
+
+      const pilotId = socket.data.playerId as string | undefined;
+      const pilot = pilotId ? room.players.get(pilotId) : undefined;
+      if (!pilot) {
+        ack?.({ ok: false, message: "Pilot not found in room." });
+        return;
+      }
+
+      const now = Date.now();
+      const lastLaunch = room.launchCooldownByPlayerId[pilot.id] ?? 0;
+      if (now - lastLaunch < PLAYER_LAUNCH_COOLDOWN_MS) {
+        ack?.({ ok: false, message: "Too fast. Wait a moment before next launch." });
         return;
       }
 
       const origin = hubs.find((hub) => hub.code === originCode);
       if (!origin) {
+        ack?.({ ok: false, message: "Origin hub not found." });
+        return;
+      }
+
+      if (origin.sector !== pilot.sector) {
+        ack?.({ ok: false, message: "You can only launch from your assigned sector." });
         return;
       }
 
       let destination = destinationCode ? hubs.find((hub) => hub.code === destinationCode) : undefined;
+
+      if (destination && destination.sector !== origin.sector && !sectorNeighbors[origin.sector].includes(destination.sector)) {
+        ack?.({ ok: false, message: "Target hub must be local or in a neighboring sector." });
+        return;
+      }
+
       if (!destination) {
         const chosenSector =
           targetSector && sectorNeighbors[origin.sector].includes(targetSector)
@@ -263,18 +410,33 @@ io.on("connection", (socket) => {
         destination = pickTargetHub(origin, chosenSector);
       }
 
-      const pilotId = socket.data.playerId as string | undefined;
-      const pilot = pilotId ? room.players.get(pilotId) : undefined;
-      if (!pilot) {
-        return;
-      }
+      room.launchCooldownByPlayerId[pilot.id] = now;
 
       const durationMs = 2000 + Math.floor(Math.random() * 900);
-      const points = pointsForLaunch(origin, destination);
+      const basePoints = pointsForLaunch(origin, destination);
 
+      let missionBonus = 0;
+      const completed = room.missions.filter((mission) => isMissionCompleted(mission, origin, destination, basePoints));
+      if (completed.length > 0) {
+        missionBonus = completed.reduce((sum, mission) => sum + mission.reward, 0);
+        room.missions = room.missions.filter((mission) => !completed.some((done) => done.id === mission.id));
+      }
+
+      const points = basePoints + missionBonus;
       room.scoreByPlayerId[pilot.id] = (room.scoreByPlayerId[pilot.id] ?? 0) + points;
       emitPlayers(room);
       emitRoomState(room);
+      emitMissions(room);
+
+      if (completed.length > 0) {
+        for (const mission of completed) {
+          io.to(room.code).emit("mission:completed", {
+            mission,
+            completedBy: pilot.name,
+            reward: mission.reward
+          });
+        }
+      }
 
       const launch = {
         id: nanoid(10),
@@ -305,6 +467,14 @@ io.on("connection", (socket) => {
           });
         }
       }, durationMs);
+
+      ack?.({
+        ok: true,
+        message: missionBonus > 0 ? `Mission bonus +${missionBonus}` : `Route complete +${points}`,
+        pointsAwarded: points,
+        totalScore: room.scoreByPlayerId[pilot.id],
+        missionBonus
+      });
     }
   );
 
@@ -318,6 +488,7 @@ io.on("connection", (socket) => {
       if (room.roundTimer) {
         clearTimeout(room.roundTimer);
       }
+      stopMissionLoop(room);
       io.to(room.code).emit("phone:error", { message: "Host disconnected. Room closed." });
       rooms.delete(room.code);
       socketToRoom.delete(socket.id);
@@ -328,6 +499,7 @@ io.on("connection", (socket) => {
     if (playerId) {
       room.players.delete(playerId);
       delete room.scoreByPlayerId[playerId];
+      delete room.launchCooldownByPlayerId[playerId];
       emitPlayers(room);
       emitRoomState(room);
     }

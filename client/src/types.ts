@@ -54,6 +54,33 @@ export interface RoomState {
   leaderboard: LeaderboardEntry[];
 }
 
+export type MissionKind = "sector" | "hub" | "longhaul";
+
+export interface Mission {
+  id: string;
+  kind: MissionKind;
+  title: string;
+  description: string;
+  reward: number;
+  expiresAt: number;
+  targetSector?: SectorName;
+  targetHubCode?: string;
+}
+
+export interface MissionCompletedEvent {
+  mission: Mission;
+  completedBy: string;
+  reward: number;
+}
+
+export interface LaunchAck {
+  ok: boolean;
+  message: string;
+  pointsAwarded?: number;
+  totalScore?: number;
+  missionBonus?: number;
+}
+
 export interface InboundDot {
   id: string;
   hub: Hub;

@@ -1,7 +1,7 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "description": "Realtime game server for CloudHopper rooms, flight events, and handoffs.",
+  "description": "Realtime game server for Hopper rooms, flight events, and handoffs.",
   "private": true,
   "main": "dist/index.js",
   "scripts": {

@@ -1,6 +1,6 @@
-# CloudHopper
+# Hopper
 
-CloudHopper is a dual-screen multiplayer party game.
+Hopper is a dual-screen multiplayer party game.
 
 - Landing at `/`: host or join entry screen.
 - TV/Big Screen at `/tv`: live 3D globe, room code, leaderboard, round controls.

@@ -13,7 +13,7 @@ export function HomeView() {
         transition={{ duration: 0.55, ease: "easeOut" }}
       >
         <p className="eyebrow">Dual-Screen Party Flight Game</p>
-        <h1>CloudHopper</h1>
+        <h1>Hopper</h1>
         <p>
           One screen runs the globe theater. Phones run sector launchpads. Draw routes, pass flights,
           and race for score before the round clock runs out.

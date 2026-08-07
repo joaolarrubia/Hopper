@@ -1,7 +1,7 @@
 {
   "name": "hopper",
   "version": "1.0.0",
-  "description": "CloudHopper is a dual-screen multiplayer party game with a 3D TV globe and mobile sector controllers.",
+  "description": "Hopper is a dual-screen multiplayer party game with a 3D TV globe and mobile sector controllers.",
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",

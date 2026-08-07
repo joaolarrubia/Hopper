@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "CloudHopper browser client with TV and phone interfaces.",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
